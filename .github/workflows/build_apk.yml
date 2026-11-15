@@ -49,11 +49,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ "$BUILD_TYPE" = "release" ]; then
-            if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
-              echo "Error: add RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD in GitHub Secrets."
+            if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+              echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > my-upload-key.jks
+            elif [ ! -f my-upload-key.jks ]; then
+              echo "Error: add RELEASE_KEYSTORE_BASE64 in GitHub Secrets."
               exit 1
             fi
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > my-upload-key.jks
+            if [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+              echo "Error: add STORE_PASSWORD and KEY_PASSWORD in GitHub Secrets."
+              exit 1
+            fi
           else
             if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
               base64 -d debug.keystore.base64 > debug.keystore
