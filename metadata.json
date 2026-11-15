@@ -1,0 +1,6 @@
+{
+  "name": "2D Armyland",
+  "description": "2D Armyland horizontal 2D game",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
