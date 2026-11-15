@@ -32,7 +32,9 @@ jobs:
 
       # настройка android sdk и лицензий
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       # установка gradle 9.3.1 и кэширование
       - name: Setup Gradle
@@ -50,7 +52,7 @@ jobs:
         run: |
           if [ "$BUILD_TYPE" = "release" ]; then
             if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-              echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > my-upload-key.jks
+              printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > my-upload-key.jks
             elif [ ! -f my-upload-key.jks ]; then
               echo "Error: add RELEASE_KEYSTORE_BASE64 in GitHub Secrets."
               exit 1
