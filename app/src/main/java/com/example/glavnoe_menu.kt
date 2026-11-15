@@ -5,12 +5,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -40,10 +38,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -344,7 +346,7 @@ class glavnoe_menu : ComponentActivity() {
     }
   }
 
-  // цикличный баннер: плавный свайп, автолистание каждые 4с и белые полоски справа снизу
+  // цикличный баннер без лишних перекомпозиций: отрисовка оттенка и полосок на gpu
   @Composable
   private fun banner_sobytiy(onNazhatie: () -> Unit = {}) {
     val ottenki = remember {
@@ -356,14 +358,9 @@ class glavnoe_menu : ComponentActivity() {
       )
     }
     val kolichestvo = ottenki.size
-    val vsego_stranits = kolichestvo * 1000
-    val sostoyanie_pager = rememberPagerState(initialPage = kolichestvo * 500) { vsego_stranits }
-    val tekushiy_indeks = ((sostoyanie_pager.currentPage % kolichestvo) + kolichestvo) % kolichestvo
-    val plavniy_ottenok by animateColorAsState(
-      targetValue = ottenki[tekushiy_indeks],
-      animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
-      label = "ottenok_bannera",
-    )
+    val vsego_stranits = kolichestvo * 200
+    val sostoyanie_pager = rememberPagerState(initialPage = kolichestvo * 100) { vsego_stranits }
+    val tekst_bannera = stringResource(R.string.banner_test)
 
     LaunchedEffect(sostoyanie_pager) {
       while (true) {
@@ -372,7 +369,7 @@ class glavnoe_menu : ComponentActivity() {
         val sled_stranitsa = (sostoyanie_pager.currentPage + 1) % vsego_stranits
         sostoyanie_pager.animateScrollToPage(
           page = sled_stranitsa,
-          animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+          animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
         )
       }
     }
@@ -387,30 +384,35 @@ class glavnoe_menu : ComponentActivity() {
     ) {
       HorizontalPager(
         state = sostoyanie_pager,
+        beyondViewportPageCount = 1,
         flingBehavior = PagerDefaults.flingBehavior(
           state = sostoyanie_pager,
-          snapAnimationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+          snapAnimationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         ),
         modifier = Modifier
           .fillMaxSize()
           .padding(dvizhok_menu.tolshina_ramki)
-          .background(plavniy_ottenok),
+          .drawBehind {
+            val baza = ((sostoyanie_pager.currentPage % kolichestvo) + kolichestvo) % kolichestvo
+            val drob = sostoyanie_pager.currentPageOffsetFraction
+            val sled = if (drob >= 0f) (baza + 1) % kolichestvo else (baza - 1 + kolichestvo) % kolichestvo
+            drawRect(lerp(ottenki[baza], ottenki[sled], drob.absoluteValue.coerceIn(0f, 1f)))
+          },
       ) { stranitsa ->
-        val otklonenie = (sostoyanie_pager.currentPage - stranitsa) + sostoyanie_pager.currentPageOffsetFraction
-        val prozrachnost = 1f - otklonenie.absoluteValue.coerceIn(0f, 1f) * 0.7f
         Box(
           modifier = Modifier
             .fillMaxSize()
             .edinoe_nazhatie(onNazhatie)
             .padding(dvizhok_menu.otstup_osnovnoy)
             .graphicsLayer {
-              alpha = prozrachnost
+              val otklonenie = (sostoyanie_pager.currentPage - stranitsa) + sostoyanie_pager.currentPageOffsetFraction
+              alpha = 1f - otklonenie.absoluteValue.coerceIn(0f, 1f) * 0.7f
               translationX = otklonenie * size.width * 0.12f
             },
           contentAlignment = Alignment.CenterStart,
         ) {
           Text(
-            text = stringResource(R.string.banner_test),
+            text = tekst_bannera,
             color = dvizhok_menu.tsvet_teksta,
             fontSize = dvizhok_menu.shrift_zagolovka,
             fontFamily = dvizhok_menu.shrift_igry,
@@ -421,32 +423,28 @@ class glavnoe_menu : ComponentActivity() {
         }
       }
 
-      // эффект белых полосок справа снизу для индикации слайдов
-      Row(
+      // индикатор слайдов без перестроения layout на кадрах
+      val shirina_indikatora = dvizhok_menu.v_dp(33f)
+      val vysota_indikatora = dvizhok_menu.v_dp(2.5f)
+      Canvas(
         modifier = Modifier
           .align(Alignment.BottomEnd)
-          .padding(end = dvizhok_menu.v_dp(6f), bottom = dvizhok_menu.v_dp(5f)),
-        horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.v_dp(2f)),
-        verticalAlignment = Alignment.CenterVertically,
+          .padding(end = dvizhok_menu.v_dp(6f), bottom = dvizhok_menu.v_dp(5f))
+          .width(shirina_indikatora)
+          .height(vysota_indikatora),
       ) {
-        repeat(kolichestvo) { indeks ->
-          val aktivno = indeks == tekushiy_indeks
-          val shirina_poloski by animateDpAsState(
-            targetValue = if (aktivno) dvizhok_menu.v_dp(12f) else dvizhok_menu.v_dp(5f),
-            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-            label = "poloska_bannera",
-          )
-          val tsvet_poloski by animateColorAsState(
-            targetValue = if (aktivno) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta.copy(alpha = 0.35f),
-            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-            label = "tsvet_poloski_bannera",
-          )
-          Box(
-            modifier = Modifier
-              .width(shirina_poloski)
-              .height(dvizhok_menu.v_dp(2.5f))
-              .background(tsvet_poloski)
-          )
+        val aktiv_indeks = ((sostoyanie_pager.currentPage % kolichestvo) + kolichestvo) % kolichestvo
+        val h = size.height
+        val shag = h * 0.8f
+        val korotkaya = h * 2f
+        val dlinnaya = h * 4.8f
+        var x = 0f
+        for (indeks in 0 until kolichestvo) {
+          val aktivno = indeks == aktiv_indeks
+          val w = if (aktivno) dlinnaya else korotkaya
+          val cvet = if (aktivno) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta.copy(alpha = 0.35f)
+          drawRect(cvet, Offset(x, 0f), Size(w, h))
+          x += w + shag
         }
       }
     }
@@ -460,36 +458,34 @@ class glavnoe_menu : ComponentActivity() {
     onVyborVkladki: (Int) -> Unit,
   ) {
     var pokazan_chat by remember { mutableStateOf(true) }
-    val ugol_strelki by animateFloatAsState(
+    val ugol_strelki = animateFloatAsState(
       targetValue = if (pokazan_chat) 90f else 0f,
       animationSpec = tween(durationMillis = dvizhok_menu.VREMYA_POVOROTA_MS, easing = FastOutSlowInEasing),
       label = "strelka_chata",
     )
 
     Column(modifier = modifier.width(dvizhok_menu.v_dp(310f))) {
-      AnimatedVisibility(visible = pokazan_chat) {
-        Column {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(dvizhok_menu.vysota_chata)
-              .bityy_piksel_stil(Color(0xA60C0E11), dvizhok_menu.tsvet_ramki, variant = 4)
-              .padding(horizontal = dvizhok_menu.otstup_malyy),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Text(
-              text = stringResource(R.string.chat_soobshenie),
-              color = dvizhok_menu.tsvet_teksta,
-              fontSize = dvizhok_menu.shrift_malyy,
-              fontFamily = dvizhok_menu.shrift_igry,
-              maxLines = 1,
-              softWrap = false,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.weight(1f),
-            )
-          }
-          Spacer(Modifier.height(dvizhok_menu.otstup_malyy))
+      if (pokazan_chat) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(dvizhok_menu.vysota_chata)
+            .bityy_piksel_stil(Color(0xA60C0E11), dvizhok_menu.tsvet_ramki, variant = 4)
+            .padding(horizontal = dvizhok_menu.otstup_malyy),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(
+            text = stringResource(R.string.chat_soobshenie),
+            color = dvizhok_menu.tsvet_teksta,
+            fontSize = dvizhok_menu.shrift_malyy,
+            fontFamily = dvizhok_menu.shrift_igry,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+          )
         }
+        Spacer(Modifier.height(dvizhok_menu.otstup_malyy))
       }
 
       Row(
@@ -511,7 +507,7 @@ class glavnoe_menu : ComponentActivity() {
             fontFamily = dvizhok_menu.shrift_igry,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.graphicsLayer { rotationZ = ugol_strelki },
+            modifier = Modifier.graphicsLayer { rotationZ = ugol_strelki.value },
           )
         }
         dvizhok_menu.razdelitel_vkladok()

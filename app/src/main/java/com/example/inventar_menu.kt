@@ -16,7 +16,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -37,9 +36,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,8 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -176,7 +174,7 @@ class inventar_menu : ComponentActivity() {
     return if (po_vozrastaniyu) spisok.reversed() else spisok
   }
 
-  // основной каркас экрана: постоянная верхняя навигация и три раздела
+  // основной каркас экрана: постоянная верхняя навигация и мгновенное переключение разделов
   @Composable
   private fun ekran_inventarya() {
     var tekushaya_vkladka by remember { mutableIntStateOf(R.string.menu_inventar) }
@@ -209,13 +207,8 @@ class inventar_menu : ComponentActivity() {
         )
         Spacer(Modifier.height(dvizhok_menu.otstup_malyy))
 
-        Crossfade(
-          targetState = tekushaya_vkladka,
-          animationSpec = tween(durationMillis = dvizhok_menu.VREMYA_ANIMACII_MS, easing = FastOutSlowInEasing),
-          modifier = Modifier.weight(1f).fillMaxWidth(),
-          label = "perehod_razdela",
-        ) { celevaya_vkladka ->
-          when (celevaya_vkladka) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+          when (tekushaya_vkladka) {
             R.string.menu_inventar -> karkas_inventarya(vybrannaya_yacheyka) { id ->
               vybrannaya_yacheyka = if (vybrannaya_yacheyka == id) -1 else id
             }
@@ -282,7 +275,7 @@ class inventar_menu : ComponentActivity() {
     }
   }
 
-  // единая кнопка навигации с плавной подсветкой без перестроения кэша
+  // единая кнопка навигации с мгновенной подсветкой текста и белой рамки (без жирного текста)
   @Composable
   private fun knopka_vkladki(
     @StringRes stroka_id: Int,
@@ -306,7 +299,6 @@ class inventar_menu : ComponentActivity() {
         text = stringResource(stroka_id),
         color = tsvet_nadpisi,
         fontSize = dvizhok_menu.shrift_osnovnoy,
-        fontWeight = if (aktivno) FontWeight.Bold else FontWeight.Normal,
         fontFamily = dvizhok_menu.shrift_igry,
         maxLines = 1,
         softWrap = false,
@@ -329,15 +321,23 @@ class inventar_menu : ComponentActivity() {
     )
   }
 
-  // каркас магазина: контейнеры | донат и сетка 5 в ряд
+  // каркас магазина: контейнеры | донат и сетка 5 в ряд без задержки и без растяжения
   @Composable
   private fun karkas_magazina() {
     var podvkladka by remember { mutableIntStateOf(R.string.magazin_konteynery) }
     val podvkladki = listOf(R.string.magazin_konteynery, R.string.magazin_donat)
+    val sostoyanie_skrolla = rememberScrollState()
+    val tovary = if (podvkladka == R.string.magazin_konteynery) tovary_konteynerov else tovary_donata
+    val stroki_tovarov = remember(tovary) { tovary.chunked(5) }
+    val otstup_setki = dvizhok_menu.otstup_malyy
+
+    LaunchedEffect(podvkladka) {
+      if (sostoyanie_skrolla.value != 0) sostoyanie_skrolla.scrollTo(0)
+    }
 
     Column(
       modifier = Modifier.fillMaxSize(),
-      verticalArrangement = Arrangement.spacedBy(dvizhok_menu.otstup_malyy),
+      verticalArrangement = Arrangement.spacedBy(otstup_setki),
     ) {
       Row(
         modifier = Modifier.fillMaxWidth().height(dvizhok_menu.vysota_podvkladki_rynka),
@@ -358,7 +358,6 @@ class inventar_menu : ComponentActivity() {
               text = stringResource(stroka_id),
               color = if (aktivno) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta_tuskliy,
               fontSize = dvizhok_menu.shrift_osnovnoy,
-              fontWeight = if (aktivno) FontWeight.Bold else FontWeight.Normal,
               fontFamily = dvizhok_menu.shrift_igry,
               maxLines = 1,
               softWrap = false,
@@ -367,31 +366,36 @@ class inventar_menu : ComponentActivity() {
         }
       }
 
-      Box(
+      Column(
         modifier = Modifier
           .weight(1f)
           .fillMaxWidth()
           .bityy_piksel_stil(dvizhok_menu.tsvet_paneli, dvizhok_menu.tsvet_ramki, variant = 1)
-          .padding(dvizhok_menu.otstup_malyy),
+          .padding(otstup_setki)
+          .clipToBounds()
+          .verticalScroll(sostoyanie_skrolla),
+        verticalArrangement = Arrangement.spacedBy(otstup_setki),
       ) {
-        Crossfade(
-          targetState = podvkladka,
-          animationSpec = tween(durationMillis = dvizhok_menu.VREMYA_ANIMACII_MS, easing = FastOutSlowInEasing),
-          label = "magazin_crossfade",
-        ) { celevaya_podvkladka ->
-          val tovary = if (celevaya_podvkladka == R.string.magazin_konteynery) tovary_konteynerov else tovary_donata
-          LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.otstup_malyy),
-            verticalArrangement = Arrangement.spacedBy(dvizhok_menu.otstup_malyy),
+        stroki_tovarov.forEachIndexed { nomer_stroki, stroka ->
+          Row(
+            modifier = Modifier.fillMaxWidth().graphicsLayer(),
+            horizontalArrangement = Arrangement.spacedBy(otstup_setki),
           ) {
-            items(tovary.size) { indeks ->
-              kartochka_magazina(
-                indeks = indeks,
-                tovar = tovary[indeks],
-                modifier = Modifier.aspectRatio(1.42f).testTag("tovar_mag_$indeks"),
-              )
+            for (kolonka in 0 until 5) {
+              val indeks = nomer_stroki * 5 + kolonka
+              val tovar = stroka.getOrNull(kolonka)
+              if (tovar != null) {
+                kartochka_magazina(
+                  indeks = indeks,
+                  tovar = tovar,
+                  modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1.42f)
+                    .testTag("tovar_mag_$indeks"),
+                )
+              } else {
+                Spacer(modifier = Modifier.weight(1f))
+              }
             }
           }
         }
@@ -426,7 +430,6 @@ class inventar_menu : ComponentActivity() {
               text = stringResource(stroka_id),
               color = if (aktivno) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta_tuskliy,
               fontSize = dvizhok_menu.shrift_osnovnoy,
-              fontWeight = if (aktivno) FontWeight.Bold else FontWeight.Normal,
               fontFamily = dvizhok_menu.shrift_igry,
               maxLines = 1,
               softWrap = false,
@@ -443,7 +446,7 @@ class inventar_menu : ComponentActivity() {
     else -> emptyList()
   }
 
-  // общая компоновка для инвентаря и рынка: полоса фильтра с поиском и сетка (5 или 4 с левой панелью)
+  // общая компоновка для инвентаря и рынка с аппаратно кэшированными строками скролла
   @Composable
   private fun razdel_s_filtrom_i_setkoy(
     opcii_sortirovki: List<Int>,
@@ -460,6 +463,7 @@ class inventar_menu : ComponentActivity() {
     var filtr_aktiven by remember(tag_prefiks) { mutableStateOf(false) }
     var tekst_poiska by remember(tag_prefiks) { mutableStateOf("") }
     val podvkladki_bokovoy = remember(rezhim_rynka) { podvkladki_dlya_rezhima(rezhim_rynka) }
+    val est_bokovaya = podvkladki_bokovoy.isNotEmpty()
     var podrazdel_rynka by remember(rezhim_rynka) {
       mutableIntStateOf(podvkladki_bokovoy.firstOrNull() ?: 0)
     }
@@ -470,11 +474,19 @@ class inventar_menu : ComponentActivity() {
       if (zapros.isEmpty()) otsortirovannye
       else otsortirovannye.filter { resursy.getString(it.nazvanie_id).contains(zapros, ignoreCase = true) }
     }
-    val sostoyanie_setki = rememberLazyGridState()
+    val yacheyki = remember(bazovyy_spisok, est_bokovaya, podrazdel_rynka) {
+      if (!est_bokovaya) bazovyy_spisok else when (podrazdel_rynka) {
+        R.string.rynok_zaprosy_pokupka, R.string.rynok_istoriya_pokupok -> bazovyy_spisok.filter { it.id % 2 == 1 }
+        else -> bazovyy_spisok.filter { it.id % 2 == 0 }
+      }
+    }
+    val kolvo_kolonok = if (est_bokovaya) 4 else 5
+    val stroki_yacheek = remember(yacheyki, kolvo_kolonok) { yacheyki.chunked(kolvo_kolonok) }
+    val sostoyanie_skrolla = rememberScrollState()
 
     LaunchedEffect(sortirovka, po_vozrastaniyu, tekst_poiska, rezhim_rynka, podrazdel_rynka) {
-      if (sostoyanie_setki.firstVisibleItemIndex != 0 || sostoyanie_setki.firstVisibleItemScrollOffset != 0) {
-        sostoyanie_setki.scrollToItem(0)
+      if (sostoyanie_skrolla.value != 0) {
+        sostoyanie_skrolla.scrollTo(0)
       }
     }
 
@@ -545,68 +557,61 @@ class inventar_menu : ComponentActivity() {
       ) {
         val otstup_setki = dvizhok_menu.otstup_malyy
         val shirina_yacheyki = ((maxWidth - otstup_setki * 4) / 5f).coerceAtLeast(0.dp)
-        Crossfade(
-          targetState = rezhim_rynka,
-          animationSpec = tween(durationMillis = dvizhok_menu.VREMYA_ANIMACII_MS, easing = FastOutSlowInEasing),
-          label = "rezhim_setki_crossfade",
-        ) { celevoy_rezhim ->
-          val spiski_bokovoy = podvkladki_dlya_rezhima(celevoy_rezhim)
-          val est_bokovaya = spiski_bokovoy.isNotEmpty()
-          val aktivnyy_podrazdel = if (celevoy_rezhim == rezhim_rynka) podrazdel_rynka else spiski_bokovoy.firstOrNull() ?: 0
-          Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(otstup_setki),
-          ) {
-            if (est_bokovaya) {
-              bokovaya_panel_rynka(
-                podvkladki = spiski_bokovoy,
-                vybrannaya = aktivnyy_podrazdel,
-                shirina = shirina_yacheyki,
-                onVybor = { podrazdel_rynka = it },
-              )
-            }
+        Row(
+          modifier = Modifier.fillMaxSize(),
+          horizontalArrangement = Arrangement.spacedBy(otstup_setki),
+        ) {
+          if (est_bokovaya) {
+            bokovaya_panel_rynka(
+              podvkladki = podvkladki_bokovoy,
+              vybrannaya = podrazdel_rynka,
+              shirina = shirina_yacheyki,
+              onVybor = { podrazdel_rynka = it },
+            )
+          }
 
-            Crossfade(
-              targetState = aktivnyy_podrazdel,
-              animationSpec = tween(durationMillis = dvizhok_menu.VREMYA_ANIMACII_MS, easing = FastOutSlowInEasing),
-              modifier = Modifier.weight(1f).fillMaxHeight(),
-              label = "podrazdel_crossfade",
-            ) { celevoy_podrazdel ->
-              val yacheyki = remember(bazovyy_spisok, est_bokovaya, celevoy_podrazdel) {
-                if (!est_bokovaya) bazovyy_spisok else when (celevoy_podrazdel) {
-                  R.string.rynok_zaprosy_pokupka, R.string.rynok_istoriya_pokupok -> bazovyy_spisok.filter { it.id % 2 == 1 }
-                  else -> bazovyy_spisok.filter { it.id % 2 == 0 }
-                }
-              }
-              Box(modifier = Modifier.fillMaxSize()) {
-                if (yacheyki.isEmpty()) {
-                  Text(
-                    text = stringResource(R.string.rynok_nichego_ne_naydeno),
-                    color = dvizhok_menu.tsvet_teksta_tuskliy,
-                    fontSize = dvizhok_menu.shrift_osnovnoy,
-                    fontFamily = dvizhok_menu.shrift_igry,
-                    modifier = Modifier.align(Alignment.Center),
-                  )
-                } else {
-                  val kolvo_kolonok = if (est_bokovaya) 4 else 5
-                  LazyVerticalGrid(
-                    state = sostoyanie_setki,
-                    columns = GridCells.Fixed(kolvo_kolonok),
-                    modifier = Modifier.fillMaxSize(),
+          Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            if (yacheyki.isEmpty()) {
+              Text(
+                text = stringResource(R.string.rynok_nichego_ne_naydeno),
+                color = dvizhok_menu.tsvet_teksta_tuskliy,
+                fontSize = dvizhok_menu.shrift_osnovnoy,
+                fontFamily = dvizhok_menu.shrift_igry,
+                modifier = Modifier.align(Alignment.Center),
+              )
+            } else {
+              Column(
+                modifier = Modifier
+                  .fillMaxSize()
+                  .clipToBounds()
+                  .verticalScroll(sostoyanie_skrolla),
+                verticalArrangement = Arrangement.spacedBy(otstup_setki),
+              ) {
+                stroki_yacheek.forEachIndexed { nomer_stroki, stroka ->
+                  Row(
+                    modifier = Modifier.fillMaxWidth().graphicsLayer(),
                     horizontalArrangement = Arrangement.spacedBy(otstup_setki),
-                    verticalArrangement = Arrangement.spacedBy(otstup_setki),
                   ) {
-                    items(yacheyki.size) { indeks ->
-                      val yacheyka = yacheyki[indeks]
-                      val vybrano = vybrannaya == yacheyka.id
-                      val mod_klika = if (onVybor != null) Modifier.edinoe_nazhatie { onVybor(yacheyka.id) } else Modifier
-                      karkasnaya_kartochka_slota(
-                        yacheyka = yacheyka,
-                        aktivno = vybrano,
-                        s_tsenoy = s_tsenoy,
-                        rezhim_rynka = celevoy_rezhim,
-                        modifier = Modifier.aspectRatio(1.42f).then(mod_klika).testTag("yacheyka_${tag_prefiks}_$indeks"),
-                      )
+                    for (kolonka in 0 until kolvo_kolonok) {
+                      val indeks = nomer_stroki * kolvo_kolonok + kolonka
+                      val yacheyka = stroka.getOrNull(kolonka)
+                      if (yacheyka != null) {
+                        val vybrano = vybrannaya == yacheyka.id
+                        val mod_klika = if (onVybor != null) Modifier.edinoe_nazhatie { onVybor(yacheyka.id) } else Modifier
+                        karkasnaya_kartochka_slota(
+                          yacheyka = yacheyka,
+                          aktivno = vybrano,
+                          s_tsenoy = s_tsenoy,
+                          rezhim_rynka = rezhim_rynka,
+                          modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1.42f)
+                            .then(mod_klika)
+                            .testTag("yacheyka_${tag_prefiks}_$indeks"),
+                        )
+                      } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                      }
                     }
                   }
                 }
@@ -673,7 +678,9 @@ class inventar_menu : ComponentActivity() {
             ellipsize = TextUtils.TruncateAt.END
             inputType = InputType.TYPE_CLASS_TEXT
             imeOptions = EditorInfo.IME_ACTION_DONE
-            typeface = ResourcesCompat.getFont(android_kontekst, R.font.handjet)
+            typeface = dvizhok_menu.kesh_shrifta_view ?: ResourcesCompat.getFont(android_kontekst, R.font.handjet)?.also {
+              dvizhok_menu.kesh_shrifta_view = it
+            }
             setTextColor(dvizhok_menu.tsvet_teksta.toArgb())
             setHintTextColor(dvizhok_menu.tsvet_teksta_tuskliy.toArgb())
             hint = podskazka
@@ -739,7 +746,7 @@ class inventar_menu : ComponentActivity() {
     }
   }
 
-  // плоский пункт сортировки внутри блока фильтра (без отдельной рамки кнопки)
+  // плоский пункт сортировки внутри блока фильтра (только подсветка текста)
   @Composable
   private fun punkt_sortirovki(
     @StringRes stroka_id: Int,
@@ -761,7 +768,6 @@ class inventar_menu : ComponentActivity() {
         text = stringResource(stroka_id),
         color = if (vybrano) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta_tuskliy,
         fontSize = dvizhok_menu.shrift_osnovnoy,
-        fontWeight = if (vybrano) FontWeight.Bold else FontWeight.Normal,
         fontFamily = dvizhok_menu.shrift_igry,
         maxLines = 1,
         softWrap = false,
@@ -773,7 +779,7 @@ class inventar_menu : ComponentActivity() {
     }
   }
 
-  // плоский пункт фильтра внутри блока (без отдельной рамки кнопки)
+  // плоский пункт фильтра внутри блока (только подсветка текста)
   @Composable
   private fun punkt_filtra(
     filtr_aktiven: Boolean,
@@ -794,7 +800,6 @@ class inventar_menu : ComponentActivity() {
         text = stringResource(R.string.rynok_filtr),
         color = tsvet,
         fontSize = dvizhok_menu.shrift_osnovnoy,
-        fontWeight = if (filtr_aktiven) FontWeight.Bold else FontWeight.Normal,
         fontFamily = dvizhok_menu.shrift_igry,
         maxLines = 1,
         softWrap = false,
@@ -867,7 +872,6 @@ class inventar_menu : ComponentActivity() {
             text = stringResource(stroka_id),
             color = if (aktivno) dvizhok_menu.tsvet_teksta else dvizhok_menu.tsvet_teksta_tuskliy,
             fontSize = dvizhok_menu.shrift_osnovnoy,
-            fontWeight = if (aktivno) FontWeight.Bold else FontWeight.Normal,
             fontFamily = dvizhok_menu.shrift_igry,
             maxLines = 1,
             softWrap = false,
@@ -882,7 +886,7 @@ class inventar_menu : ComponentActivity() {
     }
   }
 
-  // карточка товара в магазине (без редкости скина и без фильтра)
+  // карточка товара в магазине с общей кистью градиента без лишних аллокаций
   @Composable
   private fun kartochka_magazina(
     indeks: Int,
@@ -899,7 +903,7 @@ class inventar_menu : ComponentActivity() {
         modifier = Modifier
           .weight(1f)
           .fillMaxWidth()
-          .background(Brush.verticalGradient(listOf(dvizhok_menu.tsvet_fona_slota_verh.copy(alpha = 0.55f), Color.Transparent))),
+          .background(dvizhok_menu.kist_verha_slota),
       )
       Box(
         modifier = Modifier
@@ -948,7 +952,7 @@ class inventar_menu : ComponentActivity() {
     }
   }
 
-  // карточка слота для инвентаря, рынка, запросов и истории сделок
+  // карточка слота для инвентаря, рынка, запросов и истории сделок в один слой отрисовки
   @Composable
   private fun karkasnaya_kartochka_slota(
     yacheyka: karkas_yacheyki,
@@ -968,125 +972,123 @@ class inventar_menu : ComponentActivity() {
     }
     val variant_uzora = yacheyka.id * 17 + 11
 
-    Box(modifier = modifier) {
-      fon_s_podsvetkoy(
-        fon_bazy = dvizhok_menu.tsvet_yacheyki,
-        aktivno = aktivno,
-        variant = variant_uzora,
-        s_skolami = true,
-      )
-      Column(
+    Column(
+      modifier = modifier
+        .bityy_piksel_stil(
+          fon = if (aktivno) dvizhok_menu.tsvet_knopki_aktivnoy else dvizhok_menu.tsvet_yacheyki,
+          ramka = if (aktivno) dvizhok_menu.tsvet_ramki_aktivnoy else dvizhok_menu.tsvet_ramki,
+          variant = variant_uzora,
+          aktivno = aktivno,
+          s_skolami = true,
+        )
+        .padding(dvizhok_menu.tolshina_ramki),
+    ) {
+      Box(
         modifier = Modifier
-          .fillMaxSize()
-          .padding(dvizhok_menu.tolshina_ramki),
+          .weight(1f)
+          .fillMaxWidth()
+          .background(dvizhok_menu.kist_verha_slota),
       ) {
-        Box(
-          modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(dvizhok_menu.tsvet_fona_slota_verh.copy(alpha = 0.55f), Color.Transparent))),
-        ) {
-          if (eto_istoriya) {
-            val imya_igroka = stringResource(R.string.rynok_igrok_zaglushka)
-            Row(
-              modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(dvizhok_menu.v_dp(2f))
-                .background(dvizhok_menu.tsvet_plashki_igroka)
-                .padding(horizontal = dvizhok_menu.v_dp(4f), vertical = dvizhok_menu.v_dp(2.5f)),
-              horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.v_dp(4f)),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              dvizhok_menu.avatarka_igroka(
-                imya_igroka = imya_igroka,
-                razmer = dvizhok_menu.v_dp(13f),
-                shrift = dvizhok_menu.v_sp(8.5f),
-                variant = yacheyka.id,
-                bitye_kraya = false,
-              )
-              Text(
-                text = imya_igroka,
-                color = dvizhok_menu.tsvet_teksta,
-                fontSize = dvizhok_menu.shrift_malyy,
-                fontFamily = dvizhok_menu.shrift_igry,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-              )
-            }
-          }
-          if (!s_tsenoy && yacheyka.ekipirovan) {
+        if (eto_istoriya) {
+          val imya_igroka = stringResource(R.string.rynok_igrok_zaglushka)
+          Row(
+            modifier = Modifier
+              .align(Alignment.TopStart)
+              .padding(dvizhok_menu.v_dp(2f))
+              .background(dvizhok_menu.tsvet_plashki_igroka)
+              .padding(horizontal = dvizhok_menu.v_dp(4f), vertical = dvizhok_menu.v_dp(2.5f)),
+            horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.v_dp(4f)),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            dvizhok_menu.avatarka_igroka(
+              imya_igroka = imya_igroka,
+              razmer = dvizhok_menu.v_dp(13f),
+              shrift = dvizhok_menu.v_sp(8.5f),
+              variant = yacheyka.id,
+              bitye_kraya = false,
+            )
             Text(
-              text = stringResource(R.string.yacheyka_ekipirovano),
+              text = imya_igroka,
               color = dvizhok_menu.tsvet_teksta,
-              fontSize = dvizhok_menu.shrift_slota,
+              fontSize = dvizhok_menu.shrift_malyy,
               fontFamily = dvizhok_menu.shrift_igry,
               maxLines = 1,
               softWrap = false,
               overflow = TextOverflow.Ellipsis,
-              modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(2f)),
             )
           }
         }
-
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .potertost_polosy(yacheyka.redkost.tsvet, variant_uzora)
-            .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(2f)),
-          contentAlignment = Alignment.CenterStart,
-        ) {
+        if (!s_tsenoy && yacheyka.ekipirovan) {
           Text(
-            text = stringResource(yacheyka.nazvanie_id),
+            text = stringResource(R.string.yacheyka_ekipirovano),
             color = dvizhok_menu.tsvet_teksta,
             fontSize = dvizhok_menu.shrift_slota,
             fontFamily = dvizhok_menu.shrift_igry,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+              .align(Alignment.TopEnd)
+              .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(2f)),
           )
         }
+      }
 
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(1.5f)),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-            text = stringResource(levyy_tekst_id),
-            color = dvizhok_menu.tsvet_teksta_tuskliy,
-            fontSize = dvizhok_menu.shrift_slota,
-            fontFamily = dvizhok_menu.shrift_igry,
-            maxLines = 1,
-            softWrap = false,
-          )
-          if (s_tsenoy) {
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.v_dp(2f)),
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Text(
-                text = stringResource(R.string.valyuta_zoloto),
-                color = dvizhok_menu.tsvet_zolotoy,
-                fontSize = dvizhok_menu.shrift_slota,
-                fontWeight = FontWeight.Bold,
-                fontFamily = dvizhok_menu.shrift_igry,
-                maxLines = 1,
-                softWrap = false,
-              )
-              Text(
-                text = stringResource(R.string.kartochka_tsena),
-                color = dvizhok_menu.tsvet_teksta,
-                fontSize = dvizhok_menu.shrift_slota,
-                fontFamily = dvizhok_menu.shrift_igry,
-                maxLines = 1,
-                softWrap = false,
-              )
-            }
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .potertost_polosy(yacheyka.redkost.tsvet, variant_uzora)
+          .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(2f)),
+        contentAlignment = Alignment.CenterStart,
+      ) {
+        Text(
+          text = stringResource(yacheyka.nazvanie_id),
+          color = dvizhok_menu.tsvet_teksta,
+          fontSize = dvizhok_menu.shrift_slota,
+          fontFamily = dvizhok_menu.shrift_igry,
+          maxLines = 1,
+          softWrap = false,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = dvizhok_menu.otstup_malyy, vertical = dvizhok_menu.v_dp(1.5f)),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+          text = stringResource(levyy_tekst_id),
+          color = dvizhok_menu.tsvet_teksta_tuskliy,
+          fontSize = dvizhok_menu.shrift_slota,
+          fontFamily = dvizhok_menu.shrift_igry,
+          maxLines = 1,
+          softWrap = false,
+        )
+        if (s_tsenoy) {
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(dvizhok_menu.v_dp(2f)),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = stringResource(R.string.valyuta_zoloto),
+              color = dvizhok_menu.tsvet_zolotoy,
+              fontSize = dvizhok_menu.shrift_slota,
+              fontWeight = FontWeight.Bold,
+              fontFamily = dvizhok_menu.shrift_igry,
+              maxLines = 1,
+              softWrap = false,
+            )
+            Text(
+              text = stringResource(R.string.kartochka_tsena),
+              color = dvizhok_menu.tsvet_teksta,
+              fontSize = dvizhok_menu.shrift_slota,
+              fontFamily = dvizhok_menu.shrift_igry,
+              maxLines = 1,
+              softWrap = false,
+            )
           }
         }
       }
