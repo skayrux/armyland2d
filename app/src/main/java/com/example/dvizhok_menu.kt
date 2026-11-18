@@ -63,7 +63,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -139,7 +138,7 @@ object dvizhok_menu {
     EPICHESKOE(3, R.string.redkost_epicheskoe, Color(0xEB4F2F6B)),
     LEGENDARNOE(4, R.string.redkost_legendarnoe, Color(0xEB72284B)),
     MIFICHESKOE(5, R.string.redkost_mificheskoe, Color(0xEB7D261F)),
-    SEKRETNOE(6, R.string.redkost_sekretnoe, Color(0xEB8A6829)),
+    ARTEFAKT(6, R.string.redkost_artefakt, Color(0xEB8A6829)),
   }
 
   val tsvetovaya_shema =
@@ -188,7 +187,7 @@ object dvizhok_menu {
     private set
   var shirina_pravoy_paneli by mutableStateOf(152.dp)
     private set
-  var vysota_bannera by mutableStateOf(52.dp)
+  var vysota_bannera by mutableStateOf(54.dp)
     private set
   var vysota_kartochki_magazina by mutableStateOf(38.dp)
     private set
@@ -264,7 +263,7 @@ object dvizhok_menu {
     shirina_levoy_knopki = v_dp(128f)
     vysota_levoy_knopki = v_dp(30f)
     shirina_pravoy_paneli = v_dp(152f)
-    vysota_bannera = v_dp(52f)
+    vysota_bannera = v_dp(54f)
     vysota_kartochki_magazina = v_dp(38f)
     razmer_plyusa = v_dp(18f)
     shirina_knopki_boy = v_dp(136f)
@@ -635,7 +634,6 @@ object dvizhok_menu {
         text = pervaya_bukva,
         color = tsvet_teksta,
         fontSize = shrift,
-        fontWeight = FontWeight.Bold,
         fontFamily = shrift_igry,
         style = TextStyle(
           letterSpacing = mezhbukvennyy_interval,
@@ -661,7 +659,6 @@ object dvizhok_menu {
         text = stringResource(metka_id),
         color = tsvet_metki,
         fontSize = shrift_valyuty,
-        fontWeight = FontWeight.Bold,
         fontFamily = shrift_igry,
         maxLines = 1,
         softWrap = false,

@@ -392,6 +392,7 @@ class glavnoe_menu : ComponentActivity() {
         modifier = Modifier
           .fillMaxSize()
           .padding(dvizhok_menu.tolshina_ramki)
+          .clipToBounds()
           .drawBehind {
             val baza = ((sostoyanie_pager.currentPage % kolichestvo) + kolichestvo) % kolichestvo
             val drob = sostoyanie_pager.currentPageOffsetFraction
@@ -406,8 +407,7 @@ class glavnoe_menu : ComponentActivity() {
             .padding(dvizhok_menu.otstup_osnovnoy)
             .graphicsLayer {
               val otklonenie = (sostoyanie_pager.currentPage - stranitsa) + sostoyanie_pager.currentPageOffsetFraction
-              alpha = 1f - otklonenie.absoluteValue.coerceIn(0f, 1f) * 0.7f
-              translationX = otklonenie * size.width * 0.12f
+              alpha = 1f - otklonenie.absoluteValue.coerceIn(0f, 1f)
             },
           contentAlignment = Alignment.CenterStart,
         ) {

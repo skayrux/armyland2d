@@ -13,7 +13,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "faustych.armyland2d.com"
+    applicationId = "skayrux.armyland2d.com"
     minSdk = 24
     targetSdk = 36
     versionCode = 1

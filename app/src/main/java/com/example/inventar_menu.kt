@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,16 +56,17 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.res.ResourcesCompat
+import kotlin.math.roundToInt
 import com.example.dvizhok_menu.bityy_piksel_stil
 import com.example.dvizhok_menu.edinoe_nazhatie
 import com.example.dvizhok_menu.fon_s_podsvetkoy
@@ -95,7 +95,7 @@ class inventar_menu : ComponentActivity() {
   )
 
   private val bazovye_yacheyki = listOf(
-    redkost_predmeta.SEKRETNOE,
+    redkost_predmeta.ARTEFAKT,
     redkost_predmeta.MIFICHESKOE,
     redkost_predmeta.MIFICHESKOE,
     redkost_predmeta.LEGENDARNOE,
@@ -366,35 +366,32 @@ class inventar_menu : ComponentActivity() {
         }
       }
 
-      Column(
-        modifier = Modifier
-          .weight(1f)
-          .fillMaxWidth()
-          .bityy_piksel_stil(dvizhok_menu.tsvet_paneli, dvizhok_menu.tsvet_ramki, variant = 1)
-          .padding(otstup_setki)
-          .clipToBounds()
-          .verticalScroll(sostoyanie_skrolla),
-        verticalArrangement = Arrangement.spacedBy(otstup_setki),
-      ) {
-        stroki_tovarov.forEachIndexed { nomer_stroki, stroka ->
-          Row(
-            modifier = Modifier.fillMaxWidth().graphicsLayer(),
-            horizontalArrangement = Arrangement.spacedBy(otstup_setki),
-          ) {
-            for (kolonka in 0 until 5) {
-              val indeks = nomer_stroki * 5 + kolonka
-              val tovar = stroka.getOrNull(kolonka)
-              if (tovar != null) {
+      konteyner_setki_1k1(
+        variant = 1,
+        modifier = Modifier.weight(1f).fillMaxWidth(),
+      ) { razmetka ->
+        Column(
+          modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .verticalScroll(sostoyanie_skrolla),
+          verticalArrangement = Arrangement.spacedBy(razmetka.otstup_dp),
+        ) {
+          stroki_tovarov.forEachIndexed { nomer_stroki, stroka ->
+            Row(
+              modifier = Modifier.fillMaxWidth().graphicsLayer(),
+              horizontalArrangement = Arrangement.spacedBy(razmetka.otstup_dp),
+            ) {
+              stroka.forEachIndexed { kolonka, tovar ->
+                val indeks = nomer_stroki * 5 + kolonka
                 kartochka_magazina(
                   indeks = indeks,
                   tovar = tovar,
                   modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1.42f)
+                    .width(razmetka.shiriny_kolonok[kolonka])
+                    .height(razmetka.vysota_yacheyki)
                     .testTag("tovar_mag_$indeks"),
                 )
-              } else {
-                Spacer(modifier = Modifier.weight(1f))
               }
             }
           }
@@ -548,24 +545,20 @@ class inventar_menu : ComponentActivity() {
         pravaya_chast?.invoke(this)
       }
 
-      BoxWithConstraints(
-        modifier = Modifier
-          .weight(1f)
-          .fillMaxWidth()
-          .bityy_piksel_stil(dvizhok_menu.tsvet_paneli, dvizhok_menu.tsvet_ramki, variant = 0)
-          .padding(dvizhok_menu.otstup_malyy),
-      ) {
-        val otstup_setki = dvizhok_menu.otstup_malyy
-        val shirina_yacheyki = ((maxWidth - otstup_setki * 4) / 5f).coerceAtLeast(0.dp)
+      konteyner_setki_1k1(
+        variant = 0,
+        modifier = Modifier.weight(1f).fillMaxWidth(),
+      ) { razmetka ->
+        val sdvig_kolonki = if (est_bokovaya) 1 else 0
         Row(
           modifier = Modifier.fillMaxSize(),
-          horizontalArrangement = Arrangement.spacedBy(otstup_setki),
+          horizontalArrangement = Arrangement.spacedBy(razmetka.otstup_dp),
         ) {
           if (est_bokovaya) {
             bokovaya_panel_rynka(
               podvkladki = podvkladki_bokovoy,
               vybrannaya = podrazdel_rynka,
-              shirina = shirina_yacheyki,
+              shirina = razmetka.shiriny_kolonok[0],
               onVybor = { podrazdel_rynka = it },
             )
           }
@@ -585,33 +578,28 @@ class inventar_menu : ComponentActivity() {
                   .fillMaxSize()
                   .clipToBounds()
                   .verticalScroll(sostoyanie_skrolla),
-                verticalArrangement = Arrangement.spacedBy(otstup_setki),
+                verticalArrangement = Arrangement.spacedBy(razmetka.otstup_dp),
               ) {
                 stroki_yacheek.forEachIndexed { nomer_stroki, stroka ->
                   Row(
                     modifier = Modifier.fillMaxWidth().graphicsLayer(),
-                    horizontalArrangement = Arrangement.spacedBy(otstup_setki),
+                    horizontalArrangement = Arrangement.spacedBy(razmetka.otstup_dp),
                   ) {
-                    for (kolonka in 0 until kolvo_kolonok) {
+                    stroka.forEachIndexed { kolonka, yacheyka ->
                       val indeks = nomer_stroki * kolvo_kolonok + kolonka
-                      val yacheyka = stroka.getOrNull(kolonka)
-                      if (yacheyka != null) {
-                        val vybrano = vybrannaya == yacheyka.id
-                        val mod_klika = if (onVybor != null) Modifier.edinoe_nazhatie { onVybor(yacheyka.id) } else Modifier
-                        karkasnaya_kartochka_slota(
-                          yacheyka = yacheyka,
-                          aktivno = vybrano,
-                          s_tsenoy = s_tsenoy,
-                          rezhim_rynka = rezhim_rynka,
-                          modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1.42f)
-                            .then(mod_klika)
-                            .testTag("yacheyka_${tag_prefiks}_$indeks"),
-                        )
-                      } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                      }
+                      val vybrano = vybrannaya == yacheyka.id
+                      val mod_klika = if (onVybor != null) Modifier.edinoe_nazhatie { onVybor(yacheyka.id) } else Modifier
+                      karkasnaya_kartochka_slota(
+                        yacheyka = yacheyka,
+                        aktivno = vybrano,
+                        s_tsenoy = s_tsenoy,
+                        rezhim_rynka = rezhim_rynka,
+                        modifier = Modifier
+                          .width(razmetka.shiriny_kolonok[kolonka + sdvig_kolonki])
+                          .height(razmetka.vysota_yacheyki)
+                          .then(mod_klika)
+                          .testTag("yacheyka_${tag_prefiks}_$indeks"),
+                      )
                     }
                   }
                 }
@@ -620,6 +608,41 @@ class inventar_menu : ComponentActivity() {
           }
         }
       }
+    }
+  }
+
+  private data class razmetka_setki(
+    val otstup_dp: Dp,
+    val shiriny_kolonok: List<Dp>,
+    val vysota_yacheyki: Dp,
+  )
+
+  // общий 1к1 контейнер сетки с единой шириной и высотой колонок 0..4 для всех разделов
+  @Composable
+  private fun konteyner_setki_1k1(
+    variant: Int,
+    modifier: Modifier = Modifier,
+    soderzhimoe: @Composable (razmetka_setki) -> Unit,
+  ) {
+    val plotnost = LocalDensity.current
+    val otstup_px = with(plotnost) { dvizhok_menu.otstup_malyy.roundToPx() }
+    val otstup_dp = with(plotnost) { otstup_px.toDp() }
+    BoxWithConstraints(
+      modifier = modifier
+        .bityy_piksel_stil(dvizhok_menu.tsvet_paneli, dvizhok_menu.tsvet_ramki, variant = variant)
+        .padding(otstup_dp),
+    ) {
+      val chistaya_shirina_px = (constraints.maxWidth - otstup_px * 4).coerceAtLeast(0)
+      val bazovaya_yacheyka_px = chistaya_shirina_px / 5
+      val ostatok_px = chistaya_shirina_px % 5
+      val razmetka = razmetka_setki(
+        otstup_dp = otstup_dp,
+        shiriny_kolonok = List(5) { kolonka ->
+          with(plotnost) { (bazovaya_yacheyka_px + if (kolonka < ostatok_px) 1 else 0).toDp() }
+        },
+        vysota_yacheyki = with(plotnost) { (bazovaya_yacheyka_px / 1.42f).roundToInt().toDp() },
+      )
+      soderzhimoe(razmetka)
     }
   }
 
@@ -916,7 +939,6 @@ class inventar_menu : ComponentActivity() {
           text = stringResource(tovar.nazvanie_id),
           color = dvizhok_menu.tsvet_teksta,
           fontSize = dvizhok_menu.shrift_slota,
-          fontWeight = FontWeight.Bold,
           fontFamily = dvizhok_menu.shrift_igry,
           maxLines = 1,
           softWrap = false,
@@ -934,7 +956,6 @@ class inventar_menu : ComponentActivity() {
           text = stringResource(tovar.valyuta_id),
           color = tovar.tsvet_valyuty,
           fontSize = dvizhok_menu.shrift_slota,
-          fontWeight = FontWeight.Bold,
           fontFamily = dvizhok_menu.shrift_igry,
           maxLines = 1,
           softWrap = false,
@@ -1076,7 +1097,6 @@ class inventar_menu : ComponentActivity() {
               text = stringResource(R.string.valyuta_zoloto),
               color = dvizhok_menu.tsvet_zolotoy,
               fontSize = dvizhok_menu.shrift_slota,
-              fontWeight = FontWeight.Bold,
               fontFamily = dvizhok_menu.shrift_igry,
               maxLines = 1,
               softWrap = false,
